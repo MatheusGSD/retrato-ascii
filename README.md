@@ -3,7 +3,8 @@
 Transforma uma foto num retrato desenhado com caracteres, como num terminal: **https://dalmolin.dev/retrato-ascii/**
 
 Tudo roda no navegador. A foto não é enviada a lugar nenhum: o recorte do fundo e o desenho são feitos na própria página,
-e o modelo e o MediaPipe são servidos por este repositório (nenhum pedido sai do site).
+e o modelo e o MediaPipe são servidos por este repositório. O único pedido para fora do site é o contador de visitas da
+Cloudflare (Web Analytics), que vale para todo o dalmolin.dev e não recebe a foto.
 
 ## Como funciona
 
