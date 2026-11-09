@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retrato em ASCII</title>
+<meta name="description" content="Transforme uma foto num retrato desenhado com caracteres, como num terminal. Tudo roda no navegador: a foto não sai do seu aparelho.">
+<meta property="og:title" content="Retrato em ASCII">
+<meta property="og:description" content="Transforme uma foto num retrato desenhado com caracteres. Tudo roda no navegador: a foto não sai do seu aparelho.">
+<meta property="og:url" content="https://dalmolin.dev/retrato-ascii/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:image" content="https://dalmolin.dev/retrato-ascii/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://dalmolin.dev/retrato-ascii/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f8a7e'/%3E%3Ctext x='50' y='72' font-family='monospace' font-size='70' text-anchor='middle' fill='%23fff'%3E%40%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="estilo.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header class="topo">
+  <a class="casa" href="https://dalmolin.dev/">dalmolin.dev</a>
+  <h1>Retrato em ASCII</h1>
+  <p class="lede">Escolha uma foto e receba o seu retrato desenhado com caracteres, como num terminal. A foto não sai do seu aparelho: o recorte do fundo e o desenho são feitos aqui mesmo, no navegador.</p>
+</header>
+
+<main class="grade">
+  <section class="entrada" aria-label="Foto">
+    <label class="zona" id="zona">
+      <input type="file" id="arquivo" accept="image/*">
+      <b>Escolher foto</b>
+      <span>ou arraste para cá, ou cole com Ctrl+V</span>
+    </label>
+    <p class="estado" id="estado" aria-live="polite">Funciona melhor com o rosto de frente, bem enquadrado, sem nada na frente.</p>
+  </section>
+
+  <figure class="previa" id="previa" data-fundo="claro">
+    <pre id="arte" role="img" aria-label="Exemplo: retrato de Matheus Dalmolin desenhado com caracteres"></pre>
+    <figcaption id="legenda">Exemplo: o retrato do <a href="https://dalmolin.dev/sobre/">Sobre de dalmolin.dev</a>.</figcaption>
+  </figure>
+
+  <fieldset class="ajustes" id="ajustes" disabled>
+    <legend class="eyebrow">Ajustes</legend>
+    <label class="faixa">
+      <span>Colunas <output id="colunas-v">60</output></span>
+      <input type="range" id="colunas" min="30" max="140" step="2" value="60">
+    </label>
+    <label class="faixa">
+      <span>Clarear sombras <output id="sombras-v">50%</output></span>
+      <input type="range" id="sombras" min="0" max="100" step="5" value="50">
+    </label>
+    <label class="caixa"><input type="checkbox" id="recorte" checked> Recortar o fundo</label>
+    <div class="fundo" role="radiogroup" aria-label="Fundo">
+      <span>Fundo</span>
+      <label><input type="radio" name="fundo" value="claro" checked> claro</label>
+      <label><input type="radio" name="fundo" value="escuro"> escuro</label>
+    </div>
+    <div class="acoes">
+      <button type="button" id="copiar">Copiar texto</button>
+      <button type="button" id="png">Baixar PNG</button>
+      <button type="button" id="txt">Baixar .txt</button>
+    </div>
+    <p class="nota">O texto copiado é a versão do fundo escolhido: no fundo claro, o escuro da foto vira caractere cheio; no escuro, o contrário.</p>
+  </fieldset>
+</main>
+
+<footer class="pe">
+  <p>Como funciona: o modelo de segmentação de selfies do <a href="https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter">MediaPipe</a> (Google), rodando no navegador, separa a pessoa do fundo. A foto vira tons de cinza, as sombras são clareadas, o contraste local é realçado e cada bloco da imagem vira um caractere da escala <code> .:-=+*#%@</code>, do mais vazio ao mais cheio.</p>
+  <p>Código sob licença MIT: <a href="https://github.com/MatheusGSD/retrato-ascii">github.com/MatheusGSD/retrato-ascii</a>. MediaPipe sob licença Apache 2.0; fontes sob a SIL Open Font License.</p>
+  <p>Feito por Matheus Dalmolin · <a href="https://dalmolin.dev/">dalmolin.dev</a></p>
+</footer>
+</body>
+</html>

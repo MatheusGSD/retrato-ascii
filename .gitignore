@@ -1,0 +1,4 @@
+# testes locais (fotos de teste e capturas não vão para o repositório)
+_teste/
+ferramentas/_capturas/
+__pycache__/
