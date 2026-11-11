@@ -1,9 +1,9 @@
 // Página: foto → recorte (recorte.js) → grade (retrato.js) → desenho com símbolos ou com um texto (colado, pronto ou
-// escrito pelo Gemini Nano do Chrome, em escrita.js), com ajustes ao vivo e exportação em PNG e, quando dá, em texto.
+// escrito por um modelo que roda no aparelho, em escrita.js), com ajustes ao vivo e exportação em PNG e, quando dá, em texto.
 // a versão no endereço evita misturar módulos novos com antigos guardados em cache (o Pages manda guardar por 10 min)
 import { erodir, enquadrar, grade, simbolos, letras, maiusculas, celulas } from "./retrato.js?v=20261111";
 import { pessoa } from "./recorte.js";
-import { disponibilidade, escrever, preparar, SUGESTOES } from "./escrita.js?v=20261111";
+import { disponibilidade, escrever, preparar, usavel, MODELOS, SUGESTOES } from "./escrita.js?v=20261111b";
 import { PRONTOS, GRUPOS } from "./prontos.js?v=20261111";
 
 const LARGURA = 560; // largura de trabalho em px: a do retrato do Sobre, para a qual os filtros foram calibrados
@@ -29,11 +29,12 @@ const el = {
   colunasV: $("#colunas-v"), sombras: $("#sombras"), sombrasV: $("#sombras-v"), recorte: $("#recorte"),
   desenhoNota: $("#desenho-nota"), letras: $("#letras"), estiloNota: $("#estilo-nota"), texto: $("#texto"),
   credito: $("#credito"), listaProntos: $("#lista-prontos"), copiar: $("#copiar"), txt: $("#txt"), notaAcoes: $("#nota-acoes"),
-  iaVerificando: $("#ia-verificando"), iaSem: $("#ia-sem"), iaAceite: $("#ia-aceite"), aceiteDownload: $("#aceite-download"),
-  aceitar: $("#aceitar"), iaCom: $("#ia-com"), tema: $("#tema"), escrever: $("#escrever"),
+  iaVerificando: $("#ia-verificando"), iaSem: $("#ia-sem"), modelos: $("#modelos"), iaAceite: $("#ia-aceite"),
+  aceiteItens: $("#aceite-itens"), aceitar: $("#aceitar"), iaCom: $("#ia-com"), tema: $("#tema"), escrever: $("#escrever"),
   parar: $("#parar"), sugestoes: $("#sugestoes"), iaStatus: $("#ia-status"), iaErro: $("#ia-erro"), iaNota: $("#ia-nota"),
 };
 const abas = [...document.querySelectorAll('[role="tab"]')];
+const radiosModelo = [...document.querySelectorAll('input[name="modelo"]')];
 
 let foto = null; // { cv, mascara (canvas) | null, caixa, preparo: {com, sem} }
 let G = null; // grade da foto (retrato.js)
@@ -43,18 +44,22 @@ let carregou = false;
 let pesos = null; // promessa dos pesos 100 a 700 da IBM Plex Mono, que o Traço usa
 const colunasPor = { simbolos: 60, letras: 100 }; // com texto, o rosto só aparece com mais colunas
 let desenhoAnterior = "simbolos";
-let ia = "verificando"; // disponibilidade() de escrita.js
+const disp = Object.fromEntries(Object.keys(MODELOS).map((id) => [id, "verificando"])); // disponibilidade() de cada modelo
+let modelo = null; // o modelo escolhido na aba da IA
 let escrevendo = null; // AbortController enquanto a IA escreve
 let progresso = null; // download do modelo, de 0 a 1
-let preparando = false; // o Chrome está baixando o modelo depois do aceite
-const ACEITE = "retrato-ascii:aceite-ia"; // a pessoa leu como a IA funciona e aceitou (guardado só neste navegador)
-let aceitou = (() => { try { return localStorage.getItem(ACEITE) === "1"; } catch { return false; } })();
+let preparando = false; // baixando o modelo depois do aceite
+// preferências guardadas só neste navegador: os modelos cujo funcionamento a pessoa leu e aceitou, e o último escolhido
+const ACEITES = "retrato-ascii:aceites-ia", ESCOLHA = "retrato-ascii:modelo-ia";
+const guardado = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sem armazenamento: pergunta de novo da próxima vez */ } };
+const aceitos = new Set((() => { try { return JSON.parse(guardado(ACEITES) ?? "[]"); } catch { return []; } })());
+if (guardado("retrato-ascii:aceite-ia") === "1") aceitos.add("gemini"); // aceite da versão que só tinha o Gemini
 let origem = null; // { texto, credito } do último pronto ou texto da IA, para o crédito de quem edita
 
 const fundo = () => document.querySelector('input[name="fundo"]:checked').value;
 const desenho = () => document.querySelector('input[name="desenho"]:checked').value;
 const estilo = () => (desenho() === "simbolos" ? "simbolos" : document.querySelector('input[name="estilo"]:checked').value);
-const iaIndisponivel = () => ia === "sem-api" || ia === "unavailable";
 const carregarPesos = () =>
   (pesos ??= Promise.all([1, 2, 3, 4, 5, 6, 7].map((w) => document.fonts.load(`${w}00 16px "IBM Plex Mono"`))));
 
@@ -334,19 +339,58 @@ for (const g of GRUPOS) {
   el.listaProntos.append(bloco);
 }
 
-// ---------- escrita com IA (Gemini Nano do Chrome) ----------
+// ---------- escrita com IA (Gemini Nano do Chrome, Gemma 3 1B ou LFM3 1,7B) ----------
+
+const verificando = () => Object.values(disp).includes("verificando");
+const usaveis = () => Object.keys(MODELOS).filter((id) => usavel(disp[id]));
+
+function situacao(id) {
+  const d = disp[id], web = MODELOS[id].tipo === "web";
+  if (d === "verificando") return "procurando…";
+  if (d === "available") return web ? "já baixado neste navegador" : "já está neste computador";
+  if (usavel(d)) return web ? "baixa na primeira vez" : "o Chrome baixa na primeira vez";
+  return web ? "precisa de WebGPU, que este navegador não tem" : "só no Chrome para computador";
+}
+
+/** O que a pessoa precisa saber antes de usar cada modelo (e de baixá-lo, se for o caso). */
+function itensAceite(id) {
+  const m = MODELOS[id], baixar = disp[id] !== "available";
+  if (m.tipo === "chrome") return [
+    "Quem escreve é o Gemini Nano, o modelo que vem dentro do Chrome. O tema que você digitar e o texto escrito não saem do seu aparelho.",
+    ...(baixar ? ["Para isso, o Chrome precisa baixar o modelo uma vez: uns 4 GB. Ele só baixa se houver 22 GB livres no disco (é uma folga que o Chrome exige, não o tamanho do modelo) e numa conexão sem franquia. Quem baixa é o próprio Chrome, e o modelo fica guardado para as próximas vezes."] : []),
+    "Cada texto leva de alguns segundos a meio minuto e usa a placa de vídeo ou o processador.",
+    "O Chrome ainda não lista o português entre os idiomas do modelo: o texto pode sair estranho, e dá para editar na caixa.",
+  ];
+  return [
+    `Quem escreve é o ${m.nome}, um modelo aberto (${m.autor}), na placa de vídeo do seu computador. O tema que você digitar e o texto escrito não saem do seu aparelho.`,
+    ...(baixar ? [`Na primeira vez, a página baixa o modelo do Hugging Face, um repositório de modelos abertos: ${m.tamanho}. Ele fica guardado no navegador para as próximas vezes. Só o modelo vem de lá; nada seu vai.`] : []),
+    "Cada texto leva de alguns segundos a meio minuto.",
+    "É um modelo pequeno: escreve português fluente, mas às vezes foge do pedido ou inventa detalhes. Dá para editar o texto na caixa.",
+  ];
+}
 
 function mostrarIA() {
-  const usavel = ia !== "verificando" && !iaIndisponivel();
-  el.iaVerificando.hidden = ia !== "verificando";
-  el.iaSem.hidden = !iaIndisponivel();
-  el.iaAceite.hidden = !usavel || aceitou;
-  el.iaCom.hidden = !usavel || !aceitou;
-  const baixar = ia !== "available";
-  el.aceiteDownload.hidden = !baixar;
-  el.aceitar.textContent = baixar ? "Baixar o modelo e continuar" : "Entendi, quero usar";
-  el.iaNota.textContent = "Roda no seu computador, com o Gemini Nano do Chrome. Em português, o texto pode sair estranho; dá para editar na caixa.";
+  const espera = verificando(), lista = usaveis();
+  const mostra = !espera && lista.length > 0;
+  el.iaVerificando.hidden = !espera;
+  el.iaSem.hidden = espera || lista.length > 0;
+  el.modelos.hidden = !mostra;
   const ocupado = !!escrevendo || preparando;
+  for (const r of radiosModelo) {
+    r.disabled = ocupado || !usavel(disp[r.value]);
+    r.checked = r.value === modelo;
+  }
+  for (const s of document.querySelectorAll(".situacao")) s.textContent = situacao(s.dataset.modelo);
+  const aceito = !!modelo && aceitos.has(modelo);
+  el.iaAceite.hidden = !mostra || !modelo || aceito;
+  el.iaCom.hidden = !mostra || !aceito;
+  if (mostra && modelo && !aceito) {
+    el.aceiteItens.replaceChildren(...itensAceite(modelo).map((t) => Object.assign(document.createElement("li"), { textContent: t })));
+    el.aceitar.textContent = disp[modelo] !== "available" ? "Baixar o modelo e continuar" : "Entendi, quero usar";
+  }
+  if (modelo) el.iaNota.textContent = MODELOS[modelo].tipo === "chrome"
+    ? "Roda no seu computador, com o Gemini Nano do Chrome. Em português, o texto pode sair estranho; dá para editar na caixa."
+    : `Roda na placa de vídeo do seu computador, com o ${MODELOS[modelo].nome}. É um modelo pequeno: dá para editar o texto na caixa.`;
   el.escrever.hidden = !!escrevendo;
   el.escrever.disabled = preparando;
   el.parar.hidden = !escrevendo;
@@ -354,32 +398,46 @@ function mostrarIA() {
   for (const b of el.sugestoes.children) b.disabled = ocupado;
 }
 
+/** O último modelo escolhido; senão, um que já esteja no aparelho; senão, o de menor download. */
+function modeloPadrao() {
+  const salvo = guardado(ESCOLHA);
+  if (MODELOS[salvo] && usavel(disp[salvo])) return salvo;
+  if (disp.gemini === "available") return "gemini";
+  for (const id of ["gemma", "lfm3"]) if (disp[id] === "available") return id;
+  for (const id of ["gemma", "gemini", "lfm3"]) if (usavel(disp[id])) return id;
+  return null;
+}
+
+function atualizarProgresso(p) {
+  progresso = p;
+  const barra = el.iaStatus.querySelector("progress");
+  if (barra) barra.value = p;
+}
+
 async function aceitar() {
-  aceitou = true;
-  try { localStorage.setItem(ACEITE, "1"); } catch { /* sem armazenamento: pergunta de novo da próxima vez */ }
-  if (ia === "available") {
+  const id = modelo, m = MODELOS[id];
+  aceitos.add(id);
+  guardar(ACEITES, JSON.stringify([...aceitos]));
+  if (disp[id] === "available") {
     mostrarIA();
     el.tema.focus();
     return;
   }
-  // o download começa aqui, dentro do clique: o Chrome exige um gesto da pessoa
+  // o download começa aqui, dentro do clique (o Chrome exige um gesto da pessoa para baixar o Gemini Nano)
   preparando = true;
+  progresso = 0;
   el.iaErro.hidden = true;
-  const pronto = preparar((p) => {
-    progresso = p;
-    const barra = el.iaStatus.querySelector("progress");
-    if (barra) barra.value = p;
-  });
-  status("Baixando o modelo do Chrome (só desta vez)…", true);
+  const pronto = preparar(id, atualizarProgresso);
+  status(`Baixando o ${m.nome} (${m.tamanho}, só desta vez)…`, true);
   mostrarIA();
   try {
     await pronto;
-    ia = "available";
+    disp[id] = "available";
     status(null);
   } catch (e) {
     status(null);
     el.iaErro.hidden = false;
-    el.iaErro.textContent = `O Chrome não conseguiu baixar o modelo: ${e.message || e.name}`;
+    el.iaErro.textContent = `Não deu para baixar o modelo: ${e.message || e.name}`;
   } finally {
     preparando = false;
     mostrarIA();
@@ -399,24 +457,24 @@ function status(texto, comProgresso = false) {
 
 async function gerar(pedido) {
   pedido = pedido.trim();
-  if (!pedido || escrevendo || preparando || !aceitou || iaIndisponivel() || ia === "verificando") return;
+  if (!pedido || escrevendo || preparando || !modelo || !aceitos.has(modelo) || !usavel(disp[modelo])) return;
+  const id = modelo, m = MODELOS[id];
   el.tema.value = pedido;
   escrevendo = new AbortController();
   el.iaErro.hidden = true;
-  const baixando = ia !== "available";
-  status(baixando ? "Baixando o modelo do Chrome (só na primeira vez)…" : `Escrevendo um texto sobre «${pedido}»…`, baixando);
+  const baixando = disp[id] !== "available";
+  progresso = 0;
+  // os modelos abertos precisam ir para a placa de vídeo antes do primeiro texto (alguns segundos, mesmo já baixados)
+  status(baixando ? `Baixando o ${m.nome} (só na primeira vez)…`
+    : m.tipo === "web" ? `Preparando o ${m.nome}…` : `Escrevendo um texto sobre «${pedido}»…`, baixando);
   mostrarIA();
   el.parar.focus();
   let parcial = "";
   try {
-    // chamada ainda dentro do clique: o download do modelo exige um gesto da pessoa
-    const final = await escrever(pedido, {
+    // chamada ainda dentro do clique: o download do Gemini Nano exige um gesto da pessoa
+    const final = await escrever(id, pedido, {
       signal: escrevendo.signal,
-      aoBaixar: (p) => {
-        progresso = p;
-        const barra = el.iaStatus.querySelector("progress");
-        if (barra) barra.value = p;
-      },
+      aoBaixar: atualizarProgresso,
       aoTrecho: (t) => {
         if (!parcial) status(`Escrevendo um texto sobre «${pedido}»…`);
         parcial = t;
@@ -424,14 +482,14 @@ async function gerar(pedido) {
         agendar();
       },
     });
-    ia = "available";
-    usarTexto(final, `Escrito pelo Gemini Nano, no seu navegador, a partir de «${pedido}»`);
+    disp[id] = "available";
+    usarTexto(final, `Escrito pelo ${m.nome}, no seu navegador, a partir de «${pedido}»`);
   } catch (e) {
-    if (e.name === "AbortError") usarTexto(parcial, `Escrita interrompida (Gemini Nano, a partir de «${pedido}»).`);
+    if (e.name === "AbortError") usarTexto(parcial, `Escrita interrompida (${m.nome}, a partir de «${pedido}»).`);
     else {
       el.iaErro.hidden = false;
       el.iaErro.textContent = `Não deu para escrever: ${e.message || e.name}`;
-      if (parcial) usarTexto(parcial, `Texto incompleto (Gemini Nano, a partir de «${pedido}»).`);
+      if (parcial) usarTexto(parcial, `Texto incompleto (${m.nome}, a partir de «${pedido}»).`);
     }
   } finally {
     escrevendo = null;
@@ -507,6 +565,11 @@ $("#limpar").addEventListener("click", () => {
 });
 el.escrever.addEventListener("click", () => gerar(el.tema.value));
 el.aceitar.addEventListener("click", aceitar);
+for (const r of radiosModelo) r.addEventListener("change", () => {
+  modelo = r.value;
+  guardar(ESCOLHA, modelo);
+  mostrarIA();
+});
 el.tema.addEventListener("keydown", (e) => { if (e.key === "Enter") gerar(el.tema.value); });
 el.parar.addEventListener("click", () => escrevendo?.abort());
 el.copiar.addEventListener("click", async () => {
@@ -540,7 +603,7 @@ fetch("exemplo.json").then((r) => r.json()).then((ex) => {
   if (!foto) mostrar();
 });
 mostrarIA();
-disponibilidade().then((d) => {
-  ia = d;
+Promise.all(Object.keys(MODELOS).map(async (id) => { disp[id] = await disponibilidade(id); })).then(() => {
+  modelo = modeloPadrao();
   mostrarIA();
 });

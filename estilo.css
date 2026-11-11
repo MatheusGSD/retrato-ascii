@@ -136,6 +136,22 @@ input[type="range"] { width: 100%; }
 .aviso-ia { display: grid; gap: .35rem; padding: .8rem .9rem; border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 6px;
   background: var(--surface); font-size: .9rem; line-height: 1.45; }
 .aviso-ia p { color: var(--ink-2); }
+/* escolha do modelo de IA */
+.modelos { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: .4rem; }
+.modelos legend { padding: 0; margin-bottom: .35rem; }
+.modelo { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .55rem; align-items: start; padding: .55rem .65rem;
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); cursor: pointer; }
+.modelo:hover { border-color: var(--ink-3); }
+.modelo:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.modelo:has(input:disabled) { opacity: .55; cursor: default; }
+.modelo:has(input:disabled):hover { border-color: var(--rule); }
+.modelo input { margin: .25rem 0 0; }
+.modelo > span { display: grid; gap: .1rem; min-width: 0; }
+.modelo b { font-weight: 600; font-size: .95rem; }
+.modelo small { font: 400 .74rem/1.3 var(--f-mono); color: var(--ink-3); }
+.modelo em { font-style: normal; font-size: .84rem; line-height: 1.35; color: var(--ink-2); }
+.modelo .situacao { font-size: .78rem; color: var(--accent-2); }
+.modelo:has(input:disabled) .situacao { color: var(--ink-3); }
 .aceite { display: grid; gap: .6rem; padding: .9rem 1rem; border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 6px;
   background: var(--surface); font-size: .9rem; line-height: 1.45; }
 .aceite ul { margin: 0; padding-left: 1.1rem; display: grid; gap: .35rem; color: var(--ink-2); }

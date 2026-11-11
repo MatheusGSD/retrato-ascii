@@ -20,6 +20,9 @@ BASE = f"http://127.0.0.1:{PORTA}"
 RUIDO = ("Created TensorFlow Lite XNNPACK delegate",)
 # Prompt API falsa, para conferir o fluxo da escrita com IA (o Chromium do Playwright não tem o Gemini Nano): o modelo
 # começa "por baixar", o download avisa o progresso e o texto chega em pedaços, como no Chrome
+# sem WebGPU, para o resultado não depender da máquina: Gemma e LFM3 aparecem como indisponíveis (os dois se conferem
+# num Chrome de verdade, com placa de vídeo, em _teste/confere_modelos_web.py, fora do git)
+SEM_WEBGPU = "Object.defineProperty(Navigator.prototype, 'gpu', { get: () => undefined, configurable: true });"
 IA_FALSA = """
 window.LanguageModel = {
   async availability() { return localStorage.getItem('teste:modelo') === 'baixado' ? 'available' : 'downloadable'; },
@@ -59,6 +62,7 @@ def main():
         for larg, alt, tema, dpr in visoes:
                 visao = f"{larg}x{alt}_{tema}"
                 ctx = b.new_context(viewport={"width": larg, "height": alt}, color_scheme=tema, device_scale_factor=dpr, accept_downloads=True)
+                ctx.add_init_script(SEM_WEBGPU)
                 pg = ctx.new_page()
                 erros, fora = [], []
                 pg.on("console", lambda m: m.type == "error" and not any(r in m.text for r in RUIDO) and erros.append(m.text))
@@ -163,6 +167,7 @@ def main():
                 ctx.close()
         # escrita com IA: aceite → download do modelo → texto em pedaços → crédito; o aceite fica lembrado
         ctx = b.new_context(viewport={"width": 1440, "height": 709}, color_scheme="dark", device_scale_factor=2)
+        ctx.add_init_script(SEM_WEBGPU)
         ctx.add_init_script(IA_FALSA)
         pg = ctx.new_page()
         erros = []
@@ -172,7 +177,9 @@ def main():
         pg.wait_for_function("document.querySelector('#estado').textContent.startsWith('Pronto')", timeout=120000)
         pg.click('input[name="desenho"][value="letras"]', force=True)
         pg.click("#aba-ia")
-        antes = {"aceite": pg.is_visible("#ia-aceite"), "formulario": pg.is_visible("#ia-com"), "fala_do_download": pg.is_visible("#aceite-download"),
+        antes = {"aceite": pg.is_visible("#ia-aceite"), "formulario": pg.is_visible("#ia-com"), "fala_do_download": "22 GB" in pg.text_content("#ia-aceite"),
+                 "modelos": {r: not pg.is_disabled(f'input[name="modelo"][value="{r}"]') for r in ("gemini", "gemma", "lfm3")},
+                 "escolhido": pg.eval_on_selector('input[name="modelo"]:checked', "e => e.value"),
                  "botao": pg.text_content("#aceitar")}
         pg.locator("#ia-aceite").scroll_into_view_if_needed()
         pg.screenshot(path=str(SAIDA / "ia_aceite.png"))
@@ -189,7 +196,8 @@ def main():
         pg.click("#aba-ia")
         lembrado = {"aceite": pg.is_visible("#ia-aceite"), "formulario": pg.is_visible("#ia-com")}
         print("IA (falsa):", antes, depois, lembrado)
-        if (antes != {"aceite": True, "formulario": False, "fala_do_download": True, "botao": "Baixar o modelo e continuar"}
+        if (antes != {"aceite": True, "formulario": False, "fala_do_download": True, "modelos": {"gemini": True, "gemma": False, "lfm3": False},
+                      "escolhido": "gemini", "botao": "Baixar o modelo e continuar"}
                 or not depois["credito"].startswith("Escrito pelo Gemini Nano") or not depois["retrato_com_o_texto"]
                 or lembrado != {"aceite": False, "formulario": True} or erros):
             problemas.append(("ia_falsa", {"antes": antes, "depois": depois, "lembrado": lembrado, "erros": erros}))

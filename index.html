@@ -16,8 +16,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f8a7e'/%3E%3Ctext x='50' y='72' font-family='monospace' font-size='70' text-anchor='middle' fill='%23fff'%3E%40%3C/text%3E%3C/svg%3E">
 <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="estilo.css?v=20261111">
-<script type="module" src="app.js?v=20261111"></script>
+<link rel="stylesheet" href="estilo.css?v=20261111b">
+<script type="module" src="app.js?v=20261111b"></script>
 </head>
 <body>
 <header class="topo">
@@ -83,19 +83,20 @@
           <p class="nota">Só textos em domínio público. Letras de música quase sempre têm dono: se quiser usar uma, cole na caixa.</p>
         </div>
         <div class="painel-aba" role="tabpanel" id="painel-ia" aria-labelledby="aba-ia" hidden>
-          <p class="nota" id="ia-verificando">Procurando a IA do navegador…</p>
+          <p class="nota" id="ia-verificando">Procurando os modelos que funcionam neste navegador…</p>
           <div class="aviso-ia" id="ia-sem" hidden>
             <b>A escrita com IA não funciona neste navegador.</b>
-            <p>Ela usa o Gemini Nano, o modelo que vem dentro do Google Chrome para computador (Windows, Mac, Linux ou Chromebook Plus), num computador com placa de vídeo de mais de 4 GB ou com 16 GB de memória. Por aqui, dá para colar um texto ou escolher um pronto.</p>
+            <p>Ela roda no seu computador e precisa do Chrome para computador, com o Gemini Nano, ou de um navegador com WebGPU (Chrome, Edge ou Safari recentes) num computador com placa de vídeo. Por aqui, dá para colar um texto ou escolher um pronto.</p>
           </div>
+          <fieldset class="modelos" id="modelos" hidden>
+            <legend class="rotulo">Modelo</legend>
+            <label class="modelo"><input type="radio" name="modelo" value="gemini"><span><b>Gemini Nano</b><small>Google, dentro do Chrome · uns 4 GB</small><em>O melhor texto. Só no Chrome para computador.</em><span class="situacao" data-modelo="gemini"></span></span></label>
+            <label class="modelo"><input type="radio" name="modelo" value="gemma"><span><b>Gemma 3 1B</b><small>Google · 763 MB</small><em>Leve. Texto fluente, mas segue menos o pedido.</em><span class="situacao" data-modelo="gemma"></span></span></label>
+            <label class="modelo"><input type="radio" name="modelo" value="lfm3"><span><b>LFM3 1,7B</b><small>Liquid AI · 1,1 GB</small><em>O mais rápido. Qualidade parecida com a do Gemma.</em><span class="situacao" data-modelo="lfm3"></span></span></label>
+          </fieldset>
           <div class="aceite" id="ia-aceite" hidden>
-            <b>Antes de usar: a IA roda no seu computador</b>
-            <ul>
-              <li>Quem escreve é o Gemini Nano, o modelo que vem dentro do Chrome. O tema que você digitar e o texto escrito não saem do seu aparelho.</li>
-              <li id="aceite-download">Para isso, o Chrome precisa baixar o modelo uma vez: uns 4 GB. Ele só baixa se houver 22 GB livres no disco (é uma folga que o Chrome exige, não o tamanho do modelo) e numa conexão sem franquia. Quem baixa é o próprio Chrome, e o modelo fica guardado para as próximas vezes.</li>
-              <li>Cada texto leva de alguns segundos a meio minuto e usa a placa de vídeo ou o processador.</li>
-              <li>O Chrome ainda não lista o português entre os idiomas do modelo: o texto pode sair estranho, e dá para editar na caixa.</li>
-            </ul>
+            <b id="aceite-titulo">Antes de usar: a IA roda no seu computador</b>
+            <ul id="aceite-itens"></ul>
             <button type="button" class="botao" id="aceitar">Entendi, quero usar</button>
           </div>
           <div class="ia" id="ia-com" hidden>
@@ -143,8 +144,8 @@
 <footer class="pe">
   <p>Como funciona: o modelo de segmentação de selfies do <a href="https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter">MediaPipe</a> (Google), rodando no navegador, separa a pessoa do fundo. A foto vira tons de cinza, as sombras são clareadas, o contraste local é realçado e cada bloco da imagem vira um caractere da escala <code> .:-=+*#%@</code>, do mais vazio ao mais cheio.</p>
   <p>Com Letras, o texto corre em ordem de leitura e se repete até preencher o retrato. Em Soltas e Maiúsculas, o cinza de cada bloco é arredondado para cheio ou vazio (ou meio-tom) e a sobra passa para os blocos vizinhos, como na retícula de um jornal; o resultado continua sendo texto puro. Em Traço e Tamanho, o tom vem da grossura ou do tamanho de cada letra, e o retrato sai como imagem.</p>
-  <p>A escrita com IA usa o Gemini Nano, o modelo que vem dentro do Google Chrome para computador, pela <a href="https://developer.chrome.com/docs/ai/prompt-api">Prompt API</a>. Ele também roda no seu aparelho: o tema e o texto não saem dele. Os textos prontos estão em domínio público.</p>
-  <p>Código sob licença MIT: <a href="https://github.com/MatheusGSD/retrato-ascii">github.com/MatheusGSD/retrato-ascii</a>. MediaPipe sob licença Apache 2.0; fontes sob a SIL Open Font License.</p>
+  <p>A escrita com IA também roda no seu aparelho: o tema e o texto não saem dele. Dá para escolher entre o Gemini Nano, o modelo que vem dentro do Google Chrome para computador (pela <a href="https://developer.chrome.com/docs/ai/prompt-api">Prompt API</a>), e dois modelos abertos que a página baixa do Hugging Face na primeira vez e roda na placa de vídeo com o <a href="https://huggingface.co/docs/transformers.js">Transformers.js</a>: o <a href="https://huggingface.co/google/gemma-3-1b-it">Gemma 3 1B</a> (Google, termos de uso do Gemma) e o <a href="https://huggingface.co/LiquidAI/LFM3-1.7B">LFM3 1,7B</a> (Liquid AI, LFM Open License). Os textos prontos estão em domínio público.</p>
+  <p>Código sob licença MIT: <a href="https://github.com/MatheusGSD/retrato-ascii">github.com/MatheusGSD/retrato-ascii</a>. MediaPipe e Transformers.js sob licença Apache 2.0; ONNX Runtime sob licença MIT; fontes sob a SIL Open Font License.</p>
   <p>Feito por Matheus Dalmolin · <a href="https://dalmolin.dev/">dalmolin.dev</a></p>
 </footer>
 </body>
