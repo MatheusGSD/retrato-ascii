@@ -116,13 +116,13 @@ function carregarWeb(id, aoBaixar) {
       await carregado.modelo.dispose();
       carregado = null;
     }
-    const arquivos = new Map();
+    // a barra acompanha o maior arquivo (os pesos): os pequenos (configuração, tokenizador) terminam antes e a fariam
+    // pular para trás quando os pesos começassem
+    let maior = { file: null, total: 50e6 }; // o tokenizador do Gemma tem 20 MB; os pesos, centenas
     const progresso = (p) => {
       if (p.status !== "progress" || !p.total) return;
-      arquivos.set(p.file, [p.loaded, p.total]);
-      let feito = 0, total = 0;
-      for (const [a, b] of arquivos.values()) { feito += a; total += b; }
-      aoBaixar?.(feito / total);
+      if (p.total > maior.total) maior = { file: p.file, total: p.total };
+      if (p.file === maior.file) aoBaixar?.(p.loaded / p.total);
     };
     const tok = await AutoTokenizer.from_pretrained(m.repo, { progress_callback: progresso });
     const modelo = await AutoModelForCausalLM.from_pretrained(m.repo, { dtype: m.dtype, device: "webgpu", progress_callback: progresso });

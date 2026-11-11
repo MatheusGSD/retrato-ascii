@@ -3,7 +3,7 @@
 // a versão no endereço evita misturar módulos novos com antigos guardados em cache (o Pages manda guardar por 10 min)
 import { erodir, enquadrar, grade, simbolos, letras, maiusculas, celulas } from "./retrato.js?v=20261111";
 import { pessoa } from "./recorte.js";
-import { disponibilidade, escrever, preparar, usavel, MODELOS, SUGESTOES } from "./escrita.js?v=20261111b";
+import { disponibilidade, escrever, preparar, usavel, MODELOS, SUGESTOES } from "./escrita.js?v=20261111c";
 import { PRONTOS, GRUPOS } from "./prontos.js?v=20261111";
 
 const LARGURA = 560; // largura de trabalho em px: a do retrato do Sobre, para a qual os filtros foram calibrados
