@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Retrato em ASCII</title>
-<meta name="description" content="Transforme uma foto num retrato desenhado com caracteres, como num terminal. Tudo roda no navegador: a foto não sai do seu aparelho.">
+<meta name="description" content="Transforme uma foto num retrato desenhado com caracteres, como num terminal, ou com um texto: seu, um poema ou um escrito pela IA do Chrome. Tudo roda no navegador: a foto não sai do seu aparelho.">
 <meta property="og:title" content="Retrato em ASCII">
-<meta property="og:description" content="Transforme uma foto num retrato desenhado com caracteres. Tudo roda no navegador: a foto não sai do seu aparelho.">
+<meta property="og:description" content="Transforme uma foto num retrato desenhado com caracteres ou com um texto. Tudo roda no navegador: a foto não sai do seu aparelho.">
 <meta property="og:url" content="https://dalmolin.dev/retrato-ascii/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pt_BR">
@@ -16,14 +16,14 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f8a7e'/%3E%3Ctext x='50' y='72' font-family='monospace' font-size='70' text-anchor='middle' fill='%23fff'%3E%40%3C/text%3E%3C/svg%3E">
 <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="estilo.css">
-<script type="module" src="app.js"></script>
+<link rel="stylesheet" href="estilo.css?v=20261111">
+<script type="module" src="app.js?v=20261111"></script>
 </head>
 <body>
 <header class="topo">
   <a class="casa" href="https://dalmolin.dev/">dalmolin.dev</a>
   <h1>Retrato em ASCII</h1>
-  <p class="lede">Escolha uma foto e receba o seu retrato desenhado com caracteres, como num terminal. A foto não sai do seu aparelho: o recorte do fundo e o desenho são feitos aqui mesmo, no navegador.</p>
+  <p class="lede">Escolha uma foto e receba o seu retrato desenhado com caracteres, como num terminal, ou escrito com um texto: seu, um poema ou um que a IA do Chrome escreve. A foto não sai do seu aparelho: o recorte do fundo e o desenho são feitos aqui mesmo, no navegador.</p>
 </header>
 
 <main class="grade">
@@ -37,15 +37,89 @@
   </section>
 
   <figure class="previa" id="previa" data-fundo="claro">
-    <pre id="arte" role="img" aria-label="Exemplo: retrato de Matheus Dalmolin desenhado com caracteres"></pre>
+    <div class="quadro" id="quadro">
+      <pre id="arte" role="img" aria-label="Exemplo: retrato de Matheus Dalmolin desenhado com caracteres"></pre>
+      <canvas id="tela" role="img" aria-label="Retrato desenhado com o seu texto" hidden></canvas>
+    </div>
     <figcaption id="legenda">Exemplo: o retrato do <a href="https://dalmolin.dev/sobre/">Sobre de dalmolin.dev</a>.</figcaption>
   </figure>
 
   <fieldset class="ajustes" id="ajustes" disabled>
     <legend class="eyebrow">Ajustes</legend>
+    <div class="campo">
+      <span class="rotulo" id="rotulo-desenho">Desenhar com</span>
+      <div class="seg" role="radiogroup" aria-labelledby="rotulo-desenho">
+        <label><input type="radio" name="desenho" value="simbolos" checked><span>Símbolos<small>&nbsp;.:-=+*#%@</small></span></label>
+        <label><input type="radio" name="desenho" value="letras"><span>Letras<small>com um texto</small></span></label>
+      </div>
+      <p class="nota" id="desenho-nota">Cada pedaço da foto vira um símbolo da escala, do mais vazio ao mais cheio.</p>
+    </div>
+
+    <div class="sub" id="letras" hidden>
+      <div class="campo">
+        <span class="rotulo" id="rotulo-estilo">Estilo</span>
+        <div class="miniaturas" role="radiogroup" aria-labelledby="rotulo-estilo">
+          <label class="mini"><input type="radio" name="estilo" value="soltas"><canvas aria-hidden="true"></canvas><span>Soltas</span></label>
+          <label class="mini"><input type="radio" name="estilo" value="maiusculas"><canvas aria-hidden="true"></canvas><span>Maiúsculas</span></label>
+          <label class="mini"><input type="radio" name="estilo" value="traco" checked><canvas aria-hidden="true"></canvas><span>Traço</span></label>
+          <label class="mini"><input type="radio" name="estilo" value="tamanho"><canvas aria-hidden="true"></canvas><span>Tamanho</span></label>
+        </div>
+        <p class="nota" id="estilo-nota"></p>
+      </div>
+
+      <div class="campo">
+        <span class="rotulo" id="rotulo-texto">Texto</span>
+        <div class="abas" role="tablist" aria-labelledby="rotulo-texto">
+          <button type="button" role="tab" id="aba-colar" aria-controls="painel-colar" aria-selected="true">Colar</button>
+          <button type="button" role="tab" id="aba-prontos" aria-controls="painel-prontos" aria-selected="false" tabindex="-1">Prontos</button>
+          <button type="button" role="tab" id="aba-ia" aria-controls="painel-ia" aria-selected="false" tabindex="-1">Escrever com IA</button>
+        </div>
+        <div class="painel-aba" role="tabpanel" id="painel-colar" aria-labelledby="aba-colar">
+          <p class="nota">Escreva ou cole qualquer texto na caixa abaixo: uma palavra, um nome, uma letra de música, um recado.</p>
+          <button type="button" class="chip" id="limpar">Limpar a caixa</button>
+        </div>
+        <div class="painel-aba" role="tabpanel" id="painel-prontos" aria-labelledby="aba-prontos" hidden>
+          <div class="lista-prontos" id="lista-prontos"></div>
+          <p class="nota">Só textos em domínio público. Letras de música quase sempre têm dono: se quiser usar uma, cole na caixa.</p>
+        </div>
+        <div class="painel-aba" role="tabpanel" id="painel-ia" aria-labelledby="aba-ia" hidden>
+          <p class="nota" id="ia-verificando">Procurando a IA do navegador…</p>
+          <div class="aviso-ia" id="ia-sem" hidden>
+            <b>A escrita com IA não funciona neste navegador.</b>
+            <p>Ela usa o Gemini Nano, o modelo que vem dentro do Google Chrome para computador (Windows, Mac, Linux ou Chromebook Plus), num computador com placa de vídeo de mais de 4 GB ou com 16 GB de memória. Por aqui, dá para colar um texto ou escolher um pronto.</p>
+          </div>
+          <div class="aceite" id="ia-aceite" hidden>
+            <b>Antes de usar: a IA roda no seu computador</b>
+            <ul>
+              <li>Quem escreve é o Gemini Nano, o modelo que vem dentro do Chrome. O tema que você digitar e o texto escrito não saem do seu aparelho.</li>
+              <li id="aceite-download">Para isso, o Chrome precisa baixar o modelo uma vez: uns 4 GB. Ele só baixa se houver 22 GB livres no disco (é uma folga que o Chrome exige, não o tamanho do modelo) e numa conexão sem franquia. Quem baixa é o próprio Chrome, e o modelo fica guardado para as próximas vezes.</li>
+              <li>Cada texto leva de alguns segundos a meio minuto e usa a placa de vídeo ou o processador.</li>
+              <li>O Chrome ainda não lista o português entre os idiomas do modelo: o texto pode sair estranho, e dá para editar na caixa.</li>
+            </ul>
+            <button type="button" class="botao" id="aceitar">Entendi, quero usar</button>
+          </div>
+          <div class="ia" id="ia-com" hidden>
+            <label class="rotulo" for="tema">Sobre o que você quer o texto?</label>
+            <div class="linha-tema">
+              <input type="text" id="tema" autocomplete="off" enterkeyhint="go" placeholder="um tema, uma obra, uma pessoa…">
+              <button type="button" class="botao" id="escrever">Escrever</button>
+              <button type="button" class="botao leve" id="parar" hidden>Parar</button>
+            </div>
+            <div class="chips" id="sugestoes" aria-label="Sugestões"></div>
+            <p class="gerando" id="ia-status" role="status" hidden></p>
+            <p class="erro-ia" id="ia-erro" role="alert" hidden></p>
+            <p class="nota" id="ia-nota"></p>
+          </div>
+        </div>
+        <label class="oculto" for="texto">Texto do retrato</label>
+        <textarea id="texto" class="caixa-texto" rows="5" spellcheck="false" placeholder="Uma palavra, um nome, uma frase, um poema…"></textarea>
+        <p class="credito" id="credito"></p>
+      </div>
+    </div>
+
     <label class="faixa">
       <span>Colunas <output id="colunas-v">60</output></span>
-      <input type="range" id="colunas" min="30" max="140" step="2" value="60">
+      <input type="range" id="colunas" min="30" max="160" step="2" value="60">
     </label>
     <label class="faixa">
       <span>Clarear sombras <output id="sombras-v">50%</output></span>
@@ -62,12 +136,14 @@
       <button type="button" id="png">Baixar PNG</button>
       <button type="button" id="txt">Baixar .txt</button>
     </div>
-    <p class="nota">O texto copiado é a versão do fundo escolhido: no fundo claro, o escuro da foto vira caractere cheio; no escuro, o contrário.</p>
+    <p class="nota" id="nota-acoes">O texto copiado é a versão do fundo escolhido: no fundo claro, o escuro da foto vira caractere cheio; no escuro, o contrário.</p>
   </fieldset>
 </main>
 
 <footer class="pe">
   <p>Como funciona: o modelo de segmentação de selfies do <a href="https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter">MediaPipe</a> (Google), rodando no navegador, separa a pessoa do fundo. A foto vira tons de cinza, as sombras são clareadas, o contraste local é realçado e cada bloco da imagem vira um caractere da escala <code> .:-=+*#%@</code>, do mais vazio ao mais cheio.</p>
+  <p>Com Letras, o texto corre em ordem de leitura e se repete até preencher o retrato. Em Soltas e Maiúsculas, o cinza de cada bloco é arredondado para cheio ou vazio (ou meio-tom) e a sobra passa para os blocos vizinhos, como na retícula de um jornal; o resultado continua sendo texto puro. Em Traço e Tamanho, o tom vem da grossura ou do tamanho de cada letra, e o retrato sai como imagem.</p>
+  <p>A escrita com IA usa o Gemini Nano, o modelo que vem dentro do Google Chrome para computador, pela <a href="https://developer.chrome.com/docs/ai/prompt-api">Prompt API</a>. Ele também roda no seu aparelho: o tema e o texto não saem dele. Os textos prontos estão em domínio público.</p>
   <p>Código sob licença MIT: <a href="https://github.com/MatheusGSD/retrato-ascii">github.com/MatheusGSD/retrato-ascii</a>. MediaPipe sob licença Apache 2.0; fontes sob a SIL Open Font License.</p>
   <p>Feito por Matheus Dalmolin · <a href="https://dalmolin.dev/">dalmolin.dev</a></p>
 </footer>

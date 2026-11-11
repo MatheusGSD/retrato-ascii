@@ -1,6 +1,7 @@
 // Foto → retrato em caracteres. Mesmo processamento do retrato do Sobre de dalmolin.dev (ferramentas/retrato.py):
 // recorta a pessoa, clareia as sombras, realça o contraste local e reduz a uma grade de caracteres.
-// Funções puras sobre Float32Array (0 a 1, linha a linha), sem DOM.
+// Funções puras sobre Float32Array (0 a 1, linha a linha), sem DOM. Além da escala de símbolos, desenha com um texto
+// qualquer: letras soltas, maiúsculas e minúsculas (texto puro) ou a lista de células para os estilos desenhados.
 
 export const ESCALA = " .:-=+*#%@"; // do vazio ao cheio
 export const CELULA = 0.6 / 1.2; // largura do caractere em IBM Plex Mono / altura da linha (line-height 1.2)
@@ -110,36 +111,108 @@ function percentil(ordenados, p) {
 }
 
 /**
- * lum: luminância já enquadrada (w × h); masc: máscara da pessoa no mesmo enquadramento, ou null (sem recorte).
- * As medidas dos filtros valem para uma imagem com cerca de 560 px de largura (a do retrato do Sobre).
- * Devolve uma versão para fundo claro e outra para fundo escuro: o claro da foto é caractere cheio no fundo escuro e
- * vazio no fundo claro; com uma versão só, uma das duas sai em negativo.
+ * Grade do retrato. lum: luminância já enquadrada (w × h); masc: máscara da pessoa no mesmo enquadramento, ou null
+ * (sem recorte). As medidas dos filtros valem para uma imagem com cerca de 560 px de largura (a do retrato do Sobre).
+ * Devolve, por célula, o claro da foto normalizado (norm, 0 a 1) e se a célula é da pessoa (dentro, 0 ou 1).
  */
-export function retrato(lum, masc, w, h, { colunas = 60, gama = 0.7 } = {}) {
+export function grade(lum, masc, w, h, { colunas = 60, gama = 0.7 } = {}) {
   const k = w / 560;
   let l = lum.map((v) => Math.pow(v, gama)); // gama < 1 clareia as sombras
   l = realcar(l, w, h, 24 * k, 90); // contraste local
   l = realcar(l, w, h, 3 * k, 140, 2 / 255); // nitidez dos traços
   const linhas = Math.max(1, Math.round(((colunas * h) / w) * CELULA));
   const g = reduzir(l, w, h, colunas, linhas);
-  const pessoa = masc ? reduzir(masc, w, h, colunas, linhas).map((v) => (v > 0.5 ? 1 : 0)) : g.map(() => 1);
-  const dentro = g.filter((_, i) => pessoa[i]).sort();
-  const lo = dentro.length ? percentil(dentro, 0.02) : 0; // contraste medido só na pessoa
-  const hi = dentro.length ? percentil(dentro, 0.98) : 1;
+  const dentro = masc ? reduzir(masc, w, h, colunas, linhas).map((v) => (v > 0.5 ? 1 : 0)) : g.map(() => 1);
+  const ord = g.filter((_, i) => dentro[i]).sort();
+  const lo = ord.length ? percentil(ord, 0.02) : 0; // contraste medido só na pessoa
+  const hi = ord.length ? percentil(ord, 0.98) : 1;
   const norm = g.map((v) => Math.min(1, Math.max(0, (v - lo) / (hi - lo || 1))));
-  const piso = masc ? PISO : 0;
-  const texto = (dens) => {
-    const out = [];
-    for (let y = 0; y < linhas; y++) {
-      let s = "";
-      for (let x = 0; x < colunas; x++) {
-        const i = y * colunas + x;
-        const d = pessoa[i] ? piso + (1 - piso) * dens(norm[i]) : 0;
-        s += ESCALA[Math.min(ESCALA.length - 1, Math.floor(d * ESCALA.length))];
-      }
-      out.push(s.trimEnd());
+  return { norm, dentro, colunas, linhas, piso: masc ? PISO : 0 };
+}
+
+/**
+ * Tinta de cada célula (0 a 1). No fundo claro, o escuro da foto é cheio; no fundo escuro, o contrário (com uma versão
+ * só, uma das duas sai em negativo). O piso garante a silhueta nas partes mais claras da pessoa.
+ */
+export function tinta(G, fundo, comPiso = true) {
+  const piso = comPiso ? G.piso : 0;
+  return G.norm.map((v, i) => (G.dentro[i] ? piso + (1 - piso) * (fundo === "claro" ? 1 - v : v) : 0));
+}
+
+function linhasDeTexto(G, celula) {
+  const out = [];
+  for (let y = 0; y < G.linhas; y++) {
+    let s = "";
+    for (let x = 0; x < G.colunas; x++) s += celula(y * G.colunas + x);
+    out.push(s.trimEnd());
+  }
+  return out.join("\n");
+}
+
+/** Escala de símbolos: cada célula vira um caractere de ESCALA, do vazio ao cheio. */
+export function simbolos(G, fundo) {
+  const d = tinta(G, fundo);
+  return linhasDeTexto(G, (i) => ESCALA[Math.min(ESCALA.length - 1, Math.floor(d[i] * ESCALA.length))]);
+}
+
+/** Compatibilidade: as duas versões em símbolos de uma vez. */
+export function retrato(lum, masc, w, h, opcoes) {
+  const G = grade(lum, masc, w, h, opcoes);
+  return { claro: simbolos(G, "claro"), escuro: simbolos(G, "escuro"), colunas: G.colunas, linhas: G.linhas };
+}
+
+// ---------- desenho com texto ----------
+
+/** O texto em fila, repetido sem fim; espaços e quebras de linha em sequência viram um espaço só. */
+export function fila(texto) {
+  const t = [...((texto.replace(/\s+/g, " ").trim() || "texto") + " ")];
+  let i = 0;
+  return () => t[i++ % t.length];
+}
+
+/**
+ * Reduz a tinta a n níveis (0 a n-1) com difusão de erro (Floyd–Steinberg): o que sobra do arredondamento de uma
+ * célula passa para as vizinhas, e um cinza médio vira uma mistura de cheio e vazio, como a retícula de um jornal.
+ */
+export function niveis(d, G, n) {
+  const { colunas: C, linhas: L, dentro } = G;
+  const e = Float32Array.from(d);
+  const q = new Uint8Array(d.length);
+  for (let y = 0; y < L; y++)
+    for (let x = 0; x < C; x++) {
+      const i = y * C + x;
+      if (!dentro[i]) continue;
+      q[i] = Math.round(Math.min(1, Math.max(0, e[i])) * (n - 1));
+      const erro = e[i] - q[i] / (n - 1);
+      const passa = (dx, dy, f) => {
+        const xx = x + dx, yy = y + dy;
+        if (xx >= 0 && xx < C && yy < L && dentro[yy * C + xx]) e[yy * C + xx] += erro * f;
+      };
+      passa(1, 0, 7 / 16); passa(-1, 1, 3 / 16); passa(0, 1, 5 / 16); passa(1, 1, 1 / 16);
     }
-    return out.join("\n");
-  };
-  return { claro: texto((v) => 1 - v), escuro: texto((v) => v), colunas, linhas };
+  return q;
+}
+
+/** Letras soltas: onde há tinta entra a próxima letra do texto; onde não há, espaço. */
+export function letras(G, fundo, texto) {
+  const q = niveis(tinta(G, fundo), G, 2);
+  const prox = fila(texto);
+  return linhasDeTexto(G, (i) => (q[i] ? prox() : " "));
+}
+
+/** Maiúsculas e minúsculas: espaço, minúscula ou MAIÚSCULA, conforme a tinta. */
+export function maiusculas(G, fundo, texto) {
+  const q = niveis(tinta(G, fundo), G, 3);
+  const prox = fila(texto);
+  return linhasDeTexto(G, (i) => (q[i] === 0 ? " " : q[i] === 1 ? prox().toLowerCase() : prox().toUpperCase()));
+}
+
+/** Para os estilos desenhados (peso e tamanho): a letra e a tinta (sem piso) de cada célula da pessoa, em ordem. */
+export function celulas(G, fundo, texto) {
+  const d = tinta(G, fundo, false);
+  const prox = fila(texto);
+  const out = [];
+  for (let i = 0; i < d.length; i++)
+    if (G.dentro[i]) out.push({ x: i % G.colunas, y: Math.floor(i / G.colunas), letra: prox(), tinta: d[i] });
+  return out;
 }
