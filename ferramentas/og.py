@@ -24,7 +24,7 @@ p {{ margin: 0; font: 400 32px/1.35 S; color: #4a505b; }}
 .a {{ background: #191c21; display: grid; place-items: center; }}
 pre {{ margin: 0; font: 400 12px/1.2 P; color: #eceef2; }}
 </style><div class="c"><div class="t"><h1>Retrato<br>em ASCII</h1>
-<p>Sua foto desenhada com caracteres. Roda no navegador: a foto não sai do aparelho.</p><span></span>
+<p>Sua foto desenhada com caracteres ou escrita com um texto. Roda no navegador: a foto não sai do aparelho.</p><span></span>
 <span class="pe">dalmolin.dev/retrato-ascii</span></div><div class="a"><pre>{arte}</pre></div></div>"""
     tmp = RAIZ / "ferramentas" / "_og.html"
     tmp.write_text(html, encoding="utf-8")
